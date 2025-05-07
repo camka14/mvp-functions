@@ -3,6 +3,9 @@ package dataTypes
 import dataTypes.dtos.TeamDTO
 import dataTypes.enums.Division
 import io.appwrite.ID
+import io.openruntimes.kotlin.src.Group
+import io.openruntimes.kotlin.src.Participant
+import io.openruntimes.kotlin.src.ScheduleEvent
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,15 +14,15 @@ data class Team(
     val eventIds: List<String>,
     val seed: Int,
     val division: Division,
-    val wins: Int,
-    val losses: Int,
+    var wins: Int,
+    var losses: Int,
     val name: String?,
     val captainId: String,
     val players: List<String> = emptyList(),
     val pending: List<String> = emptyList(),
     val teamSize: Int,
     override val id: String
-) : MVPDocument {
+) : MVPDocument, Participant {
 
     companion object {
         operator fun invoke(captainId: String): Team {
@@ -38,6 +41,9 @@ data class Team(
             )
         }
     }
+
+    override fun getGroup(): Group = Group(division.name)
+    override fun getEvents(): List<ScheduleEvent> = emptyList()
 
     fun toTeamDTO(): TeamDTO {
         return TeamDTO(

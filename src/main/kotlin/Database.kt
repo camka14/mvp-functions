@@ -5,6 +5,7 @@ import dataTypes.dtos.*
 import io.appwrite.Client
 import io.appwrite.Query
 import io.appwrite.services.Databases
+import io.openruntimes.kotlin.src.dataTypes.dtos.FieldDTO
 import io.openruntimes.kotlin.src.util.DbConstants
 
 class Database {
@@ -16,7 +17,6 @@ class Database {
     private val databases = Databases(client)
 
     suspend fun getTournament(tournamentId: String): Result<Tournament> = runCatching {
-
         val doc = databases.getDocument(
             DbConstants.DATABASE_NAME,
             DbConstants.TOURNAMENT_COLLECTION,
@@ -32,18 +32,34 @@ class Database {
             DbConstants.MATCHES_COLLECTION,
             queries = listOf(Query.equal(DbConstants.TOURNAMENT_ATTRIBUTE, tournamentId)),
             nestedType = MatchDTO::class.java
-        )
-        docs.documents.map { doc -> doc.data.toMatch(doc.id) }.associateBy { it.id }
+        ).documents.map{ it.data }.associateBy { it.id }
+        val matches = docs.map { (id, doc) -> doc.toMatch(id) }.associateBy { it.id }
+        matches.map { (id, matchMVP) ->
+            matchMVP.winnerNextMatch = matches[docs[id]!!.winnerNextMatchId]
+            matchMVP.loserNextMatch = matches[docs[id]!!.loserNextMatchId]
+            matchMVP.previousLeftMatch = matches[docs[id]!!.previousLeftId]
+            matchMVP.previousRightMatch = matches[docs[id]!!.previousRightId]
+            id to matchMVP
+        }.toMap()
     }
 
     suspend fun getTeamsForTournament(tournamentId: String): Result<Map<String, Team>> = runCatching {
         val docs = databases.listDocuments(
             DbConstants.DATABASE_NAME,
-            DbConstants.MATCHES_COLLECTION,
+            DbConstants.VOLLEYBALL_TEAMS_COLLECTION,
             queries = listOf(Query.contains(DbConstants.TOURNAMENTS_ATTRIBUTE, tournamentId)),
             nestedType = TeamDTO::class.java
         )
         docs.documents.map { doc -> doc.data.toTeam(doc.id) }.associateBy { it.id }
+    }
+
+    suspend fun getFieldsOfTournament(tournamentId: String): Result<Map<String, Field>> = runCatching {
+        databases.listDocuments(
+            DbConstants.DATABASE_NAME,
+            DbConstants.MATCHES_COLLECTION,
+            listOf(Query.contains(DbConstants.TOURNAMENT_ATTRIBUTE, tournamentId)),
+            nestedType = FieldDTO::class.java,
+        ).documents.map { doc -> doc.data.toField(doc.id) }.associateBy { it.id }
     }
 
     suspend fun updateTournament(tournament: Tournament): Result<Unit> = runCatching {
@@ -56,14 +72,14 @@ class Database {
         )
     }
 
-    suspend fun updateFields(matches: List<Field>): Result<Unit> = runCatching {
-        matches.forEach {
+    suspend fun updateFields(fields: List<Field>): Result<Unit> = runCatching {
+        fields.forEach {
             databases.updateDocument(
                 DbConstants.DATABASE_NAME,
                 DbConstants.MATCHES_COLLECTION,
                 it.id,
-                it,
-                nestedType = Field::class.java,
+                it.toFieldDTO(),
+                nestedType = FieldDTO::class.java,
             )
         }
     }
