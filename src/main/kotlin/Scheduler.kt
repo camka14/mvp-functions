@@ -54,13 +54,17 @@ class Scheduler(
 ) {
     private val resourcesByGroup: MutableMap<Group, MutableList<Resource>> = mutableMapOf()
     private val participantsByGroup: MutableMap<Group, MutableList<Participant>> = mutableMapOf()
-    private var currentGroups: List<Group> = emptyList()
+    private var currentGroup: Group? = null
 
     init {
         for (group in groups) {
             resourcesByGroup[group] = resources.values.filter { it.getGroups().contains(group) }.toMutableList()
             participantsByGroup[group] = participants.values.filter { it.getGroup() == group }.toMutableList()
         }
+    }
+
+    fun selectGroup(newGroup: Group) {
+        currentGroup = newGroup
     }
 
     /**
@@ -70,15 +74,13 @@ class Scheduler(
      */
     fun getParticipantConflicts(): Map<Participant, List<ScheduleEvent>> {
         val conflicts = mutableMapOf<Participant, MutableList<ScheduleEvent>>()
-        for (group in currentGroups) {
-            val events = resourcesByGroup[group]?.flatMap { resource -> resource.getEvents() } ?: continue
-            for (participant in participantsByGroup[group]!!) {
-                for (evt in events) {
-                    val overlapping = currentEvents(evt.start, evt.end).filter { it != evt }
-                    for (ce in overlapping) {
-                        conflicts.computeIfAbsent(participant) { mutableListOf() }
-                        if (ce !in conflicts[participant]!!) conflicts[participant]!!.add(ce)
-                    }
+        val events = resourcesByGroup[currentGroup]?.flatMap { resource -> resource.getEvents() } ?: return emptyMap()
+        for (participant in participantsByGroup[currentGroup]!!) {
+            for (evt in events) {
+                val overlapping = currentEvents(evt.start, evt.end).filter { it != evt }
+                for (ce in overlapping) {
+                    conflicts.computeIfAbsent(participant) { mutableListOf() }
+                    if (ce !in conflicts[participant]!!) conflicts[participant]!!.add(ce)
                 }
             }
         }
@@ -114,7 +116,7 @@ class Scheduler(
      * @param duration The duration of the event.
      */
     fun scheduleEvent(event: ScheduleEvent, duration: Duration) {
-        currentGroups = listOf(event.getGroup())
+        currentGroup = event.getGroup()
         var earliest = getEarliestStartTime(event)
         while (true) {
             if (checkParticipants(earliest, earliest.plus(duration), event.participantIds().size)) {
@@ -156,7 +158,7 @@ class Scheduler(
      */
     private fun checkParticipants(start: Instant, end: Instant, minCount: Int): Boolean {
         val active = currentEvents(start, end)
-        val total = currentGroups.sumOf { participantsByGroup[it]!!.size }
+        val total = participantsByGroup[currentGroup]!!.size
         val occupied = active.sumOf { it.participantIds().size }
         return (total - occupied) >= minCount
     }
@@ -168,8 +170,8 @@ class Scheduler(
      * @param duration The Duration of the event.
      * @return A Resource if available; null if none free.
      */
-    private fun findAvailableResource(start: Instant, duration: Duration): Resource? {
-        val pool = currentGroups.flatMap { resourcesByGroup[it]!! }.toMutableList()
+    fun findAvailableResource(start: Instant, duration: Duration): Resource? {
+        val pool = resourcesByGroup[currentGroup]!!.toMutableList()
         pool.sortBy { it.getEvents().size }
         val end = start.plus(duration)
         for (r in pool) if (isResourceAvailable(r, start, end)) return r
@@ -184,7 +186,7 @@ class Scheduler(
      * @param end Desired end Instant.
      * @return True if resource has no conflicting events.
      */
-    private fun isResourceAvailable(resource: Resource, start: Instant, end: Instant): Boolean {
+    fun isResourceAvailable(resource: Resource, start: Instant, end: Instant): Boolean {
         return resource.getEvents().none { evt ->
             !(evt.start >= end && evt.end > end) && !(evt.start < start && evt.end <= start)
         }
@@ -199,12 +201,10 @@ class Scheduler(
      */
     private fun currentEvents(start: Instant, end: Instant): List<ScheduleEvent> {
         val evts = mutableListOf<ScheduleEvent>()
-        for (g in currentGroups) {
-            for (res in resourcesByGroup[g]!!) {
-                for (evt in res.getEvents()) {
-                    if (!(evt.start >= end && evt.end > end) && !(evt.start < start && evt.end <= start)) {
-                        evts.add(evt)
-                    }
+        for (res in resourcesByGroup[currentGroup]!!) {
+            for (evt in res.getEvents()) {
+                if (!(evt.start >= end && evt.end > end) && !(evt.start < start && evt.end <= start)) {
+                    evts.add(evt)
                 }
             }
         }

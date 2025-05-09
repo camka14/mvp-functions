@@ -18,10 +18,16 @@ dependencies {
     implementation("com.raedghazal:kotlinx_datetime_ext:1.3.1")
     implementation("com.github.open-runtimes.open-runtimes:runtimes-kotlin:unspecified")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.9.2")
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
 }
 kotlin {
     jvmToolchain(21)

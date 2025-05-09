@@ -25,24 +25,21 @@ data class MatchMVP(
     var team1Points: List<Int>,
     var team2Points: List<Int>,
     val losersBracket: Boolean,
-    var winnerNextMatch: MatchMVP?,
-    var loserNextMatch: MatchMVP?,
-    var previousLeftMatch: MatchMVP?,
-    var previousRightMatch: MatchMVP?,
     val setResults: List<Int>,
     val refCheckedIn: Boolean?,
     val side: Side = Side.LEFT,
     override var id: String,
 ) : MVPDocument, ScheduleEvent {
+    var previousLeftMatch: MatchMVP? = null
+    var previousRightMatch: MatchMVP? = null
+    var winnerNextMatch:   MatchMVP? = null
+    var loserNextMatch:    MatchMVP? = null
     override val buffer: Duration = (team1Points.size * 5).toLong().minutes
 
     override fun getGroup(): Group = Group(division.name)
     override fun getResource(): Resource? = field
     override fun setResource(resource: Resource) {
-        when (resource) {
-            is Field -> this.field = resource
-            else -> throw Exception("Incorrect resource type, Expected ${Field.Companion::class.java} got ${resource.javaClass}")
-        }
+        this.field = resource as Field
     }
 
     override fun participantIds(): List<String?> = listOf(team1, team2) // stub
@@ -111,5 +108,20 @@ data class MatchMVP(
             setResults = setResults,
             refereeCheckedIn = refCheckedIn,
         )
+    }
+
+    override fun toString(): String {
+        return buildString {
+            append("MatchMVP(")
+            append("id=$id")
+            append(", num=$matchNumber")
+            team1?.let { append(", team1=$it") }
+            team2?.let { append(", team2=$it") }
+            append(", prevLeft=${previousLeftMatch?.id}")
+            append(", prevRight=${previousRightMatch?.id}")
+            append(", nextWin=${winnerNextMatch?.id}")
+            append(", nextLose=${loserNextMatch?.id}")
+            append(")")
+        }
     }
 }

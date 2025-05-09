@@ -1,6 +1,7 @@
 package io.openruntimes.kotlin.src.dataTypes.dtos
 
 import dataTypes.Field
+import dataTypes.MatchMVP
 import dataTypes.enums.Division
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -16,12 +17,12 @@ data class FieldDTO(
     @Transient
     val id: String = "",
 ) {
-    fun toField(id: String): Field {
+    fun toField(id: String, matchesById: Map<String, MatchMVP>): Field {
         return Field(
             inUse = inUse,
             fieldNumber = fieldNumber,
             divisions = divisions.map { Division.valueOf(it) },
-            matches = matches,
+            matches = matches.map { matchId -> matchesById[matchId]!! }.toMutableList(),
             tournamentId = tournamentId,
             id = id
         )

@@ -53,13 +53,13 @@ class Database {
         docs.documents.map { doc -> doc.data.toTeam(doc.id) }.associateBy { it.id }
     }
 
-    suspend fun getFieldsOfTournament(tournamentId: String): Result<Map<String, Field>> = runCatching {
+    suspend fun getFieldsOfTournament(tournamentId: String, matchesById: Map<String, MatchMVP>): Result<Map<String, Field>> = runCatching {
         databases.listDocuments(
             DbConstants.DATABASE_NAME,
             DbConstants.MATCHES_COLLECTION,
             listOf(Query.contains(DbConstants.TOURNAMENT_ATTRIBUTE, tournamentId)),
             nestedType = FieldDTO::class.java,
-        ).documents.map { doc -> doc.data.toField(doc.id) }.associateBy { it.id }
+        ).documents.map { doc -> doc.data.toField(doc.id, matchesById) }.associateBy { it.id }
     }
 
     suspend fun updateTournament(tournament: Tournament): Result<Unit> = runCatching {

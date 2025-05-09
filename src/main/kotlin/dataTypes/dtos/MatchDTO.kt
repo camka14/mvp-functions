@@ -49,9 +49,5 @@ fun MatchDTO.toMatch(
         losersBracket = losersBracket,
         setResults = setResults,
         refCheckedIn = refereeCheckedIn,
-        winnerNextMatch = null,
-        loserNextMatch = null,
-        previousLeftMatch = null,
-        previousRightMatch = null,
     )
 }

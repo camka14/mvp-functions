@@ -49,7 +49,7 @@ class Main {
         }
     }
 
-    fun handleBuildBracket(payload: JsonObject, context: RuntimeContext): RuntimeOutput {
+    private fun handleBuildBracket(payload: JsonObject, context: RuntimeContext): RuntimeOutput {
         val tournamentId = payload.get("tournament")?.asString ?: return context.res.text("Missing 'tournament'")
 
         val db = Database()
@@ -60,19 +60,20 @@ class Main {
                 .onFailure { context.logger.write(arrayOf("Failed to get matches of tournament: $tournamentId\n${it.message}")) }
             _remoteTeams.value = db.getTeamsForTournament(tournamentId)
                 .onFailure { context.logger.write(arrayOf("Failed to get teams of tournament: $tournamentId\n${it.message}")) }
-            _remoteFields.value = db.getFieldsOfTournament(tournamentId)
+            _remoteFields.value = db.getFieldsOfTournament(tournamentId, _remoteMatches.value.getOrNull() ?: emptyMap())
                 .onFailure { context.logger.write(arrayOf("Failed to get fields of tournament: $tournamentId\n${it.message}")) }
         }
         runBlocking { getterJob.join() }
 
-        val tournament = _remoteTournament.value.onFailure { return context.res.text("Fetching Tournament Failed") }
-            .getOrNull() ?: return context.res.text("Tournament not found")
-        val matches = _remoteMatches.value.onFailure { return context.res.text("Fetching Matches Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
-        val teams = _remoteTeams.value.onFailure { return context.res.text("Fetching Teams Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
-        val fields = _remoteFields.value.onFailure { return context.res.text("Fetching Teams Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
+        val tournament =
+            _remoteTournament.value.onFailure { return context.res.text("Fetching Tournament Failed") }.getOrNull()
+                ?: return context.res.text("Tournament not found")
+        val matches = _remoteMatches.value.onFailure { return context.res.text("Fetching Matches Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
+        val teams = _remoteTeams.value.onFailure { return context.res.text("Fetching Teams Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
+        val fields = _remoteFields.value.onFailure { return context.res.text("Fetching Teams Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
 
         val brackets = Bracket(tournament, matches, teams, fields)
         brackets.buildBrackets()
@@ -86,7 +87,7 @@ class Main {
         return context.res.text("")
     }
 
-    fun handleUpdateMatch(payload: JsonObject, context: RuntimeContext): RuntimeOutput {
+    private fun handleUpdateMatch(payload: JsonObject, context: RuntimeContext): RuntimeOutput {
         val tournamentId = payload.get("tournament")?.asString ?: return context.res.text("Missing 'tournament'")
         val matchId = payload.get("matchId")?.asString ?: return context.res.text("Missing 'matchId'")
 
@@ -106,19 +107,20 @@ class Main {
                 .onFailure { context.logger.write(arrayOf("Failed to get matches of tournament: $tournamentId\n${it.message}")) }
             _remoteTeams.value = db.getTeamsForTournament(tournamentId)
                 .onFailure { context.logger.write(arrayOf("Failed to get teams of tournament: $tournamentId\n${it.message}")) }
-            _remoteFields.value = db.getFieldsOfTournament(tournamentId)
+            _remoteFields.value = db.getFieldsOfTournament(tournamentId, _remoteMatches.value.getOrNull() ?: emptyMap())
                 .onFailure { context.logger.write(arrayOf("Failed to get fields of tournament: $tournamentId\n${it.message}")) }
         }
         runBlocking { getterJob.join() }
 
-        val tournament = _remoteTournament.value.onFailure { return context.res.text("Fetching Tournament Failed") }
-            .getOrNull() ?: return context.res.text("Tournament not found")
-        val matches = _remoteMatches.value.onFailure { return context.res.text("Fetching Matches Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
-        val teams = _remoteTeams.value.onFailure { return context.res.text("Fetching Teams Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
-        val fields = _remoteFields.value.onFailure { return context.res.text("Fetching Teams Failed") }
-            .getOrNull()?.toMutableMap() ?: mutableMapOf()
+        val tournament =
+            _remoteTournament.value.onFailure { return context.res.text("Fetching Tournament Failed") }.getOrNull()
+                ?: return context.res.text("Tournament not found")
+        val matches = _remoteMatches.value.onFailure { return context.res.text("Fetching Matches Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
+        val teams = _remoteTeams.value.onFailure { return context.res.text("Fetching Teams Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
+        val fields = _remoteFields.value.onFailure { return context.res.text("Fetching Teams Failed") }.getOrNull()
+            ?.toMutableMap() ?: mutableMapOf()
 
         // Locate the updated match
         val updated = matches[matchId] ?: return context.res.text("No match with ID '${'$'}matchId'")
@@ -146,8 +148,7 @@ class Main {
         updated.advanceTeams(winner, loser)
 
         // 1) Find the root match (highest matchNumber)
-        val rootMatch = matches.values.maxByOrNull { it.matchNumber }
-            ?: return context.res.text("No matches to update")
+        val rootMatch = matches.values.maxByOrNull { it.matchNumber } ?: return context.res.text("No matches to update")
 
 // 2) BFS‐walk the bracket, exactly like Python _apply_match_ids
         val queue = ArrayDeque<MatchMVP>().apply { add(rootMatch) }
@@ -167,9 +168,7 @@ class Main {
                 // if exactly one side is in the losers bracket, enqueue that “flipped” branch
                 val left = prev.previousLeftMatch
                 val right = prev.previousRightMatch
-                if (prev.losersBracket && left != null && right != null &&
-                    (left.losersBracket xor right.losersBracket)
-                ) {
+                if (prev.losersBracket && left != null && right != null && (left.losersBracket xor right.losersBracket)) {
                     queue += (if (left.losersBracket) left else right)
                 }
             }
@@ -182,9 +181,7 @@ class Main {
                 conflictMatch as MatchMVP
                 if (participant.id == conflictMatch.refId) {
                     scheduler.freeParticipants(
-                        Group(currentDivision.name),
-                        conflictMatch.start,
-                        conflictMatch.end
+                        Group(currentDivision.name), conflictMatch.start, conflictMatch.end
                     ).firstOrNull { (it as Team).losses == 0 && !isTeamInPreviousMatch(it, conflictMatch) }
                         ?.let { freeTeam ->
                             conflictMatch.refId = freeTeam.id
@@ -195,10 +192,7 @@ class Main {
 
         val upcoming = if (updated.losersBracket) {
             getUpcomingMatchesInTimeRange(
-                updated.end,
-                updated.winnerNextMatch!!.start,
-                matches,
-                true
+                updated.end, updated.winnerNextMatch!!.start, matches, true
             ).also { list ->
                 list.firstOrNull { it.refId == null }?.apply {
                     refId = winner.id
@@ -208,10 +202,7 @@ class Main {
             )
         } else {
             getUpcomingMatchesInTimeRange(
-                updated.end,
-                updated.loserNextMatch!!.start,
-                matches,
-                true
+                updated.end, updated.loserNextMatch!!.start, matches, true
             )
         }
 
@@ -222,10 +213,7 @@ class Main {
         teamsWaitingToStart(teams.values, matches.values.toList(), currentTime).forEach { (team, teamMatches) ->
             if (team.losses == 0) {
                 getUpcomingMatchesInTimeRange(
-                    currentTime,
-                    teamMatches.minByOrNull { it.start }!!.start,
-                    matches,
-                    true
+                    currentTime, teamMatches.minByOrNull { it.start }!!.start, matches, true
                 ).firstOrNull { it.refId == null }?.also { next ->
                     next.refId = team.id
                 }
@@ -249,10 +237,7 @@ class Main {
      * @return A list of matches sorted by start time (asc), then duration (desc).
      */
     private fun getUpcomingMatchesInTimeRange(
-        beginning: Instant,
-        end: Instant,
-        matches: Map<String, MatchMVP>,
-        mustBeNextMatch: Boolean
+        beginning: Instant, end: Instant, matches: Map<String, MatchMVP>, mustBeNextMatch: Boolean
     ): List<MatchMVP> {
         val inRange = mutableListOf<MatchMVP>()
         for (m in matches.values) {
@@ -290,9 +275,7 @@ class Main {
      * @param currentTime Reference time.
      */
     private fun teamsWaitingToStart(
-        teams: Collection<Team>,
-        matches: List<MatchMVP>,
-        currentTime: Instant
+        teams: Collection<Team>, matches: List<MatchMVP>, currentTime: Instant
     ): List<Pair<Team, List<MatchMVP>>> {
         val waiting = mutableListOf<Pair<Team, List<MatchMVP>>>()
         for (team in teams) {
@@ -324,13 +307,12 @@ class Main {
      * @param allMatches Map of all matches by ID.
      */
     private fun unscheduleMatchesOnField(
-        updated: MatchMVP,
-        allMatches: Map<String, MatchMVP>
+        updated: MatchMVP, allMatches: Map<String, MatchMVP>
     ) {
         val field = updated.field ?: return
         // field.matches holds IDs of matches on that field
-        for (mid in field.matches) {
-            allMatches[mid]?.let { m ->
+        for (match in field.matches) {
+            match.let { m ->
                 if (m.start > updated.start || m.refId == null) {
                     m.field = null
                 }
@@ -347,10 +329,7 @@ class Main {
      * @param allMatches Map of all matches by ID.
      */
     private fun processMatches(
-        walkMatches: List<MatchMVP>,
-        scheduler: Scheduler,
-        updated: MatchMVP,
-        allMatches: Map<String, MatchMVP>
+        walkMatches: List<MatchMVP>, scheduler: Scheduler, updated: MatchMVP, allMatches: Map<String, MatchMVP>
     ) {
         unscheduleMatchesOnField(updated, allMatches)
         // schedule winner‐first

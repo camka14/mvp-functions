@@ -40,7 +40,7 @@ class Bracket(
     }.toMap()
 
     init {
-        fieldsMap.values.forEach { it.matches = listOf() }
+        fieldsMap.values.forEach { it.matches = mutableListOf() }
         bracketScheduler = Scheduler(
             startTime = tournament.start,
             resources = fieldsMap,
@@ -66,7 +66,7 @@ class Bracket(
         for (division in tournament.divisions) {
             setupDivision(division)
             val teams = teamsMap.values.filter { it.division == division }.toMutableList()
-            if (teams.size < 3) continue
+            if (teams.size < 4) continue
             prepareTeams(teams)
             val root = createSubMatches(null, numberOfRounds, seedsWithByes.size, Side.RIGHT)
             val final = handleDoubleElimination(root)
@@ -234,15 +234,12 @@ class Bracket(
             team1Points       = MutableList(mult) { 0 },
             team2Points       = MutableList(mult) { 0 },
             losersBracket     = isLoser,
-            winnerNextMatch   = nextWin,
-            loserNextMatch    = null,
-            previousLeftMatch = null,
-            previousRightMatch= null,
             setResults        = MutableList(mult) { 0 },
             refCheckedIn      = false,
             side              = side,
             id                = ID.unique()
         )
+        m.winnerNextMatch = nextWin
         matchesMap[m.id] = m
         return m
     }

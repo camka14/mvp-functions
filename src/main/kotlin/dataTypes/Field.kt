@@ -10,22 +10,25 @@ import kotlinx.serialization.Transient
 
 
 @Serializable
-data class Field(
-    val inUse: Boolean?,
-    val fieldNumber: Int,
+class Field(
+    override val id: String,
     val divisions: List<Division>,
-    var matches: List<String>,
-    val tournamentId: String,
-    @Transient override val id: String = "",
+    var inUse: Boolean? = false,
+    var matches: MutableList<MatchMVP> = mutableListOf(),
+    val fieldNumber: Int,
+    val tournamentId: String
 ) : MVPDocument, Resource {
+    // Use a Set internally to prevent duplicate entries
+
     override fun getGroups(): List<Group> = divisions.map { Group(it.name) }
-    override fun getEvents(): List<ScheduleEvent> = emptyList()
+    override fun getEvents(): List<ScheduleEvent> = matches.toList()
+
     override fun addEvent(event: ScheduleEvent) {
-        matches = matches + event.id
+        matches.add(event as MatchMVP)
     }
 
     override fun removeEvent(event: ScheduleEvent) {
-        matches = matches.filterNot { it == event.id }
+        matches.remove(event)
     }
 
     fun toFieldDTO(): FieldDTO {
@@ -33,7 +36,7 @@ data class Field(
             inUse = inUse,
             fieldNumber = fieldNumber,
             divisions = divisions.map { it.name },
-            matches = matches,
+            matches = matches.map { it.id },
             tournamentId = tournamentId,
             id = id
         )
